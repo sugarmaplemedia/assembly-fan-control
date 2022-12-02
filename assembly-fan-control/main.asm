@@ -1,12 +1,67 @@
 ;
-; assembly-fan-control.asm
+; Fan.asm
 ;
-; Created: 12/2/2022 12:40:10 PM
-; Author : Harry
+; Created: 11/30/2022 12:13:05 PM
+; Author : River Smith
 ;
 
 
-; Replace with your application code
-start:
-    inc r16
-    rjmp start
+.cseg
+.org 0x00
+rjmp reset
+.org INT0addr
+rjmp INT0_vect
+.org 0x34
+
+	ldi R16, HIGH(RAMEND)
+	out SPH, R16
+	ldi R16, LOW(RAMEND)
+	out SPL, R16
+
+;ports
+LDI R16, 0xFF ;(all ones)
+out DDRC, R16 ; Port C initialized to output / send info to LEDs
+
+LDI R17, 0x00 ; (all zeroes)
+out DDRA, R17 ; Port A initialized to input / takes in temperature
+
+LDI r18, 0x00110010 ; setting fan register to 50
+
+LDI r19, 0x00011001 ;min fan speed 25%
+
+LDI r20, 0x01100100 ;max fan speed 100%
+
+LDI r21, 0x1000110101 ;30 celsius for temp to be at
+;create variable for thermistor value to be
+
+main:
+	Call TempCheck ;call to check the temp right away may include branches instead of call
+
+TempCheck: ;Checks the temperature of the thermistor and then sees if temp is lower or higher than it should be
+	CPI r17, r21
+	BR ;if temp read (r17) is lower than r21 then slow fan else if r17 is higher increase fan if neither keep speed.
+
+FanSpeedInc: ;increases fan speed to increase cooling to lower temp
+	add r18, 0x01; add initial speed by 1 bit
+	call delay
+	rjmp TempCheck ;loops back to check fan speed 
+
+FanSpeedDec: ;decreases fan speed to increase temp
+	sub r18, 0x01 ;sub initial speed by 1 bit
+	call delay
+	rjmp TempCheck ;loops back to check fan speed 
+
+TempStable: ;resistor has reached its targeted temp.
+	rjmp main
+
+Delay: ; 2 second delay to avoid constant reading.
+	ldi r20, 163
+	ldi r21, 86
+	ldi r22, 0
+L1: dec r22
+	brne L1
+	dec r21
+	brne L1
+	dec r20
+	brne L1
+	ret
