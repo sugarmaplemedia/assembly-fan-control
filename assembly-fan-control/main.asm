@@ -1,10 +1,13 @@
 ;
-; Fan.asm
+; main.asm
 ;
 ; Created: 11/30/2022 12:13:05 PM
-; Author : River Smith
+; Authors : River Smith, Harrison Bouche
 ;
 
+;
+; START ARDUINO SETUP CODE
+;
 
 .cseg
 .org 0x00
@@ -33,6 +36,54 @@ LDI r20, 0x01100100 ;max fan speed 100%
 
 LDI r21, 0x1000110101 ;30 celsius for temp to be at
 ;create variable for thermistor value to be
+
+;
+; END ARDUINO SETUP CODE
+;
+
+
+;
+; START ADC CODE
+;
+
+; ADC setup
+initial_ADC:
+	ldi R16, 0x20
+	sts ADMUX, R16
+	ldi R16, 0x97
+	sts ADCSRA, R16
+	clr R16 ; equivalent to ldi R16, 0x00
+	sts ADCSRB, R16
+
+; start ADC conversion
+SC:
+	lds R16, ADCSRA
+	ori R16, 0b01000000 ; enable ADSC to trigger conversion
+
+; check conversion status
+CheckEOC:
+	lds R16, ADCSRA
+	SBRS R16, ADIF ; check if bit 7 of register 16 is equivalent to ADIF (bit 5 of ADCSRA), skip if true
+	RJMP CheckEOC
+	CALL ReadAOC
+
+; to read retrieved data
+ReadADC:
+	clr R24
+	clr R25
+	lds R24, ADCL ; retrieve two most significant bits (transfer signals) of data in bits 8 and 7 of register
+	lds R25, ADCH ; retrieve first 8 bits of data, actual data
+	; 10 bits of data retrieved in backwards (from binary) order
+	RET
+
+;
+; END ADC CODE
+;
+
+
+;
+; START FAN CONTROL CODE
+;
 
 main:
 	Call TempCheck ;call to check the temp right away may include branches instead of call
@@ -65,3 +116,7 @@ L1: dec r22
 	dec r20
 	brne L1
 	ret
+
+;
+; END FAN CONTROL CODE
+;
